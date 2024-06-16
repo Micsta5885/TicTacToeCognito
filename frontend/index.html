@@ -241,26 +241,27 @@
         });
 
         socket.on("gameOver", (e) => {
-            alert(e.message);
-            resetGame();
-        });
+    alert(e.message);
+    resetGame();
+});
 
-        function resetGame() {
-            document.getElementById("bigCont").style.display = "none";
-            document.getElementById("whosTurn").style.display = "none";
-            document.getElementById("find").style.display = "block";
-            document.getElementById("find").disabled = false;
-            document.querySelectorAll(".btn").forEach(button => {
-                button.innerText = '';
-                button.removeAttribute('disabled');
-            });
-            document.getElementById("value").innerText = '';
-            document.getElementById("userCont").style.display = "none";
-            document.getElementById("oppNameCont").style.display = "none";
-            document.getElementById("name").style.display = "block";
-            document.getElementById("enterName").style.display = "block";
-            document.getElementById("find").style.display = "block";
-        }
+function resetGame() {
+    document.getElementById("bigCont").style.display = "none";
+    document.getElementById("whosTurn").style.display = "none";
+    document.getElementById("find").style.display = "block";
+    document.getElementById("find").disabled = false;
+    document.querySelectorAll(".btn").forEach(button => {
+        button.innerText = '';
+        button.removeAttribute('disabled');
+    });
+    document.getElementById("value").innerText = '';
+    document.getElementById("userCont").style.display = "none";
+    document.getElementById("oppNameCont").style.display = "none";
+    document.getElementById("name").style.display = "block";
+    document.getElementById("enterName").style.display = "block";
+    document.getElementById("find").style.display = "block";
+}
+
 
         function register() {
             const email = document.getElementById("register-email").value;
