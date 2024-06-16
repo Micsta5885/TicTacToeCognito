@@ -31,18 +31,20 @@ io.on("connection", (socket) => {
     socket.on("find", (e) => {
         console.log("Otrzymano żądanie znalezienia gracza: ", e);
         if (e.name != null) {
-            arr.push(e.name);
+            arr.push({ name: e.name, id: socket.id });
             console.log("Aktualna lista graczy czekających: ", arr);
             if (arr.length >= 2) {
                 let p1obj = {
-                    p1name: arr[0],
+                    p1name: arr[0].name,
                     p1value: "X",
-                    p1move: ""
+                    p1move: "",
+                    p1id: arr[0].id
                 };
                 let p2obj = {
-                    p2name: arr[1],
+                    p2name: arr[1].name,
                     p2value: "O",
-                    p2move: ""
+                    p2move: "",
+                    p2id: arr[1].id
                 };
 
                 let obj = {
@@ -54,7 +56,7 @@ io.on("connection", (socket) => {
                 playingArray.push(obj);
                 console.log("Utworzono mecz: ", obj);
 
-                arr.splice(0, 2); // Usuń dwie nazwy
+                arr.splice(0, 2); //delete two names
 
                 io.emit("find", { allPlayersArray: playingArray });
                 console.log("Emitowano aktualizację graczy: ", playingArray);
@@ -81,6 +83,15 @@ io.on("connection", (socket) => {
 
     socket.on("gameOver", (e) => {
         playingArray = playingArray.filter(obj => obj.p1.p1name !== e.name && obj.p2.p2name !== e.name);
+    });
+
+    socket.on("disconnect", () => {
+        console.log("Użytkownik rozłączony", socket.id);
+        let game = playingArray.find(obj => obj.p1.p1id === socket.id || obj.p2.p2id === socket.id);
+        if (game) {
+            playingArray = playingArray.filter(obj => obj.p1.p1id !== socket.id && obj.p2.p2id !== socket.id);
+            io.emit("gameOver", { name: game.p1.p1name });
+        }
     });
 });
 
@@ -177,7 +188,7 @@ app.use('/frontend', createProxyMiddleware({
 
 app.get("/", (req, res) => {
     console.log("Ktoś zażądał strony głównej.");
-    res.redirect('/frontend'); // Przekierowanie do serwera frontendowego
+    res.redirect('/frontend'); // Redirect to frontend server
 });
 
 server.listen(3000, () => {
