@@ -25,47 +25,42 @@ let playingArray = [];
 
 app.use(express.static('public'));
 
-function checkGameOver(players) {
-    const moves = {
-        X: [],
-        O: []
-    };
+function checkGameOver(game) {
+    const p1 = game.p1;
+    const p2 = game.p2;
 
-    players.forEach(player => {
-        if (player.move) {
-            moves[player.symbol].push(player.move);
-        }
-    });
-
-    console.log("Player moves:", moves); 
+    const board = Array(9).fill(null);
+    if (p1.p1move) {
+        board[parseInt(p1.p1move.replace('btn', '')) - 1] = 'X';
+    }
+    if (p2.p2move) {
+        board[parseInt(p2.p2move.replace('btn', '')) - 1] = 'O';
+    }
 
     const winningCombinations = [
-        ['btn1', 'btn2', 'btn3'],
-        ['btn4', 'btn5', 'btn6'],
-        ['btn7', 'btn8', 'btn9'],
-        ['btn1', 'btn4', 'btn7'],
-        ['btn2', 'btn5', 'btn8'],
-        ['btn3', 'btn6', 'btn9'],
-        ['btn1', 'btn5', 'btn9'],
-        ['btn3', 'btn5', 'btn7']
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6]
     ];
 
     for (let combination of winningCombinations) {
-        if (combination.every(btn => moves.X.includes(btn))) {
-            return { winner: 'X' };
-        }
-        if (combination.every(btn => moves.O.includes(btn))) {
-            return { winner: 'O' };
+        const [a, b, c] = combination;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return { winner: board[a] };
         }
     }
 
-    if (moves.X.length + moves.O.length === 9) {
+    if (board.every(cell => cell)) {
         return { winner: 'Draw' };
     }
 
     return null;
 }
-
 
 io.on("connection", (socket) => {
     console.log("Nowy użytkownik połączony", socket.id);
@@ -80,10 +75,8 @@ io.on("connection", (socket) => {
                 let p2 = arr.shift();
 
                 let game = {
-                    players: [
-                        { name: p1.name, id: p1.id, symbol: "X", move: "" },
-                        { name: p2.name, id: p2.id, symbol: "O", move: "" }
-                    ],
+                    p1: { p1name: p1.name, p1id: p1.id, p1value: "X", p1move: "" },
+                    p2: { p2name: p2.name, p2id: p2.id, p2value: "O", p2move: "" },
                     sum: 1
                 };
 
@@ -96,58 +89,55 @@ io.on("connection", (socket) => {
         }
     });
 
-   socket.on("playing", (e) => {
-    console.log("Otrzymano ruch od gracza: ", e);
-    let game = playingArray.find(g => g.players.some(p => p.name === e.name));
+    socket.on("playing", (e) => {
+        console.log("Otrzymano ruch od gracza: ", e);
+        let game = playingArray.find(g => g.p1.p1name === e.name || g.p2.p2name === e.name);
 
-    if (!game) return;
+        if (!game) return;
 
-    let player = game.players.find(p => p.name === e.name);
-    let opponent = game.players.find(p => p.name !== e.name);
+        if (game.p1.p1name === e.name && game.p1.p1value === e.value) {
+            game.p1.p1move = e.id;
+        } else if (game.p2.p2name === e.name && game.p2.p2value === e.value) {
+            game.p2.p2move = e.id;
+        } else {
+            console.error("Invalid move");
+            return;
+        }
 
-    if (!opponent) {
-        console.error("Opponent not found");
-        return;
-    }
-
-    if (player.symbol === e.value) {
-        player.move = e.id;
         game.sum++;
         let currentPlayerTurn = game.sum % 2 === 0 ? "O" : "X";
         console.log("Zaktualizowano stan gry: ", game);
 
-        io.to(player.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
-        io.to(opponent.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+        io.to(game.p1.p1id).emit("playing", { allPlayers: [game.p1, game.p2], currentPlayerTurn });
+        io.to(game.p2.p2id).emit("playing", { allPlayers: [game.p1, game.p2], currentPlayerTurn });
         console.log("Emitowano ruch do wszystkich graczy.");
 
-        let result = checkGameOver(game.players);
-        console.log("Wynik sprawdzania końca gry:", result);  // Dodane logi
+        let result = checkGameOver(game);
+        console.log("Wynik sprawdzania końca gry:", result);
         if (result) {
             if (result.winner === 'Draw') {
-                io.to(player.id).emit("gameOver", { message: "Draw!" });
-                io.to(opponent.id).emit("gameOver", { message: "Draw!" });
+                io.to(game.p1.p1id).emit("gameOver", { message: "Draw!" });
+                io.to(game.p2.p2id).emit("gameOver", { message: "Draw!" });
             } else {
-                io.to(player.id).emit("gameOver", { message: `${result.winner} WON !!` });
-                io.to(opponent.id).emit("gameOver", { message: `${result.winner} WON !!` });
+                io.to(game.p1.p1id).emit("gameOver", { message: `${result.winner} WON !!` });
+                io.to(game.p2.p2id).emit("gameOver", { message: `${result.winner} WON !!` });
             }
             playingArray = playingArray.filter(g => g !== game);
         }
-    }
-});
-
+    });
 
     socket.on("gameOver", (e) => {
-        playingArray = playingArray.filter(game => !game.players.some(p => p.name === e.name));
+        playingArray = playingArray.filter(game => game.p1.p1name !== e.name && game.p2.p2name !== e.name);
     });
 
     socket.on("disconnect", () => {
         console.log("Użytkownik rozłączony", socket.id);
         arr = arr.filter(p => p.id !== socket.id);
-        let game = playingArray.find(game => game.players.some(p => p.id === socket.id));
+        let game = playingArray.find(game => game.p1.p1id === socket.id || game.p2.p2id === socket.id);
         if (game) {
-            let opponent = game.players.find(p => p.id !== socket.id);
+            let opponent = game.p1.p1id === socket.id ? game.p2 : game.p1;
             if (opponent) {
-                io.to(opponent.id).emit("gameOver", { message: "Your opponent has disconnected." });
+                io.to(opponent.p2id || opponent.p1id).emit("gameOver", { message: "Your opponent has disconnected." });
             }
             playingArray = playingArray.filter(g => g !== game);
         }
