@@ -81,7 +81,27 @@ io.on("connection", (socket) => {
 
     socket.on("gameOver", (e) => {
         playingArray = playingArray.filter(obj => obj.p1.p1name !== e.name)
-    })
+    });
+
+    socket.on("logout", (e) => {
+        console.log("Gracz wylogowany: ", e.name);
+        let game = playingArray.find(obj => obj.p1.p1name === e.name || obj.p2.p2name === e.name);
+        if (game) {
+            let opponentName = game.p1.p1name === e.name ? game.p2.p2name : game.p1.p1name;
+            playingArray = playingArray.filter(obj => obj !== game);
+            io.emit("gameOver", { name: opponentName, message: "Your opponent has logged out. Returning to search." });
+        }
+    });
+
+    socket.on("disconnect", () => {
+        console.log("Użytkownik rozłączony", socket.id);
+        let game = playingArray.find(obj => obj.p1.p1name === socket.id || obj.p2.p2name === socket.id);
+        if (game) {
+            let opponentName = game.p1.p1name === socket.id ? game.p2.p2name : game.p1.p1name;
+            playingArray = playingArray.filter(obj => obj !== game);
+            io.emit("gameOver", { name: opponentName, message: "Your opponent has disconnected. Returning to search." });
+        }
+    });
 });
 
 // Auth routes
