@@ -1,6 +1,8 @@
 const express = require("express");
+const AWS = require('aws-sdk');
+const AmazonCognitoIdentity = require('amazon-cognito-identity-js');
+const bodyParser = require('body-parser');
 const app = express();
-
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -8,6 +10,7 @@ const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 app.use(cors());
+app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -79,6 +82,85 @@ io.on("connection", (socket) => {
     socket.on("gameOver", (e) => {
         playingArray = playingArray.filter(obj => obj.p1.p1name !== e.name)
     })
+});
+
+// Auth routes
+app.post('/register', (req, res) => {
+    const { email, password } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const attributeList = [];
+    attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }));
+
+    userPool.signUp(email, password, attributeList, null, (err, result) => {
+        if (err) {
+            res.status(400).send(err.message);
+        } else {
+            res.send('Registration successful! Please check your email for verification code.');
+        }
+    });
+});
+
+app.post('/confirm', (req, res) => {
+    const { email, code } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const userData = {
+        Username: email,
+        Pool: userPool
+    };
+
+    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+    cognitoUser.confirmRegistration(code, true, (err, result) => {
+        if (err) {
+            res.status(400).send(err.message);
+        } else {
+            res.send('Verification successful! You can now log in.');
+        }
+    });
+});
+
+app.post('/login', (req, res) => {
+    const { email, password } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({
+        Username: email,
+        Password: password
+    });
+
+    const userData = {
+        Username: email,
+        Pool: userPool
+    };
+
+    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+    cognitoUser.authenticateUser(authenticationDetails, {
+        onSuccess: (result) => {
+            const accessToken = result.getAccessToken().getJwtToken();
+            res.json({ accessToken });
+        },
+        onFailure: (err) => {
+            res.status(400).send(err.message);
+        }
+    });
 });
 
 // Proxy endpoint to frontend server
