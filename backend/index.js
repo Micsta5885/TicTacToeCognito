@@ -25,6 +25,45 @@ let playingArray = [];
 
 app.use(express.static('public'));
 
+function checkGameOver(players) {
+    const moves = {
+        X: [],
+        O: []
+    };
+
+    players.forEach(player => {
+        if (player.move) {
+            moves[player.symbol].push(player.move);
+        }
+    });
+
+    const winningCombinations = [
+        ['btn1', 'btn2', 'btn3'],
+        ['btn4', 'btn5', 'btn6'],
+        ['btn7', 'btn8', 'btn9'],
+        ['btn1', 'btn4', 'btn7'],
+        ['btn2', 'btn5', 'btn8'],
+        ['btn3', 'btn6', 'btn9'],
+        ['btn1', 'btn5', 'btn9'],
+        ['btn3', 'btn5', 'btn7']
+    ];
+
+    for (let combination of winningCombinations) {
+        if (combination.every(btn => moves.X.includes(btn))) {
+            return { winner: 'X' };
+        }
+        if (combination.every(btn => moves.O.includes(btn))) {
+            return { winner: 'O' };
+        }
+    }
+
+    if (moves.X.length + moves.O.length === 9) {
+        return { winner: 'Draw' };
+    }
+
+    return null;
+}
+
 io.on("connection", (socket) => {
     console.log("Nowy użytkownik połączony", socket.id);
 
@@ -77,6 +116,18 @@ io.on("connection", (socket) => {
             io.to(player.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
             io.to(opponent.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
             console.log("Emitowano ruch do wszystkich graczy.");
+
+            let result = checkGameOver(game.players);
+            if (result) {
+                if (result.winner === 'Draw') {
+                    io.to(player.id).emit("gameOver", { message: "Draw!" });
+                    io.to(opponent.id).emit("gameOver", { message: "Draw!" });
+                } else {
+                    io.to(player.id).emit("gameOver", { message: `${result.winner} WON !!` });
+                    io.to(opponent.id).emit("gameOver", { message: `${result.winner} WON !!` });
+                }
+                playingArray = playingArray.filter(g => g !== game);
+            }
         }
     });
 
