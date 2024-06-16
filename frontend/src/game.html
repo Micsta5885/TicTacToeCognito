@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.googleapis.com/css2?family=Tilt+Warp&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/app.css">
+    <title>Tic Tac Toe</title>
+</head>
+<body>
+    <h1>Tic Tac Toe</h1>
+
+    <div class="auth">
+        <h2>Register</h2>
+        <form id="register-form">
+            <input type="email" id="reg-email" placeholder="Email" required>
+            <input type="password" id="reg-password" placeholder="Password" required>
+            <button type="submit">Register</button>
+        </form>
+
+        <h2>Verify</h2>
+        <form id="verify-form">
+            <input type="email" id="verify-email" placeholder="Email" required>
+            <input type="text" id="verify-code" placeholder="Verification Code" required>
+            <button type="submit">Verify</button>
+        </form>
+
+        <h2>Login</h2>
+        <form id="login-form">
+            <input type="email" id="login-email" placeholder="Email" required>
+            <input type="password" id="login-password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <div class="front-page">
+        <h2>TicTacToe Game</h2>
+        <h4>Username:</h4>
+        <input type="text" id="username" placeholder="Username">
+        <br><br>
+        <button id="start">START GAME</button>
+        <br><br>
+        <h4>Existing game:</h4>
+        <input type="text" id="group" placeholder="Group ID">
+        <button id="join">JOIN</button>
+        <br><br>
+        <button id="logout">Logout</button>
+    </div>
+
+    <div class="board">
+        <h2 id="greeting"></h2>
+        <h3 id="turn"></h3>
+        <table>
+            <tr>
+                <td><button class="box" id="button_00">#</button></td>
+                <td><button class="box" id="button_01">#</button></td>
+                <td><button class="box" id="button_02">#</button></td>
+            </tr>
+            <tr>
+                <td><button class="box" id="button_10">#</button></td>
+                <td><button class="box" id="button_11">#</button></td>
+                <td><button class="box" id="button_12">#</button></td>
+            </tr>
+            <tr>
+                <td><button class="box" id="button_20">#</button></td>
+                <td><button class="box" id="button_21">#</button></td>
+                <td><button class="box" id="button_22">#</button></td>
+            </tr>
+        </table>
+        <div id="connect-buttons">
+            <input type="text" id="game-id" placeholder="Paste game id">
+            <button id="random-game">Connect to random game</button>
+            <button id="connect-game-id">Connect by game id</button>
+        </div>
+        <div class="reset">
+            <button id="reset">RESET</button>
+        </div>
+    </div>
+
+  <script src="lib/jquery.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
