@@ -7,4 +7,3 @@ sudo sed -i "s|http://__BACKEND_IP__:3000|http://$IP_V4:3000|g" /home/ubuntu/app
 sudo sed -i "s|http://localhost:3000|http://$IP_V4:3000|g" /home/ubuntu/app/frontend/index.html
 
 echo "Updated IP address in index.html and nginx.conf to $IP_V4"
-
