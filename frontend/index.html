@@ -76,6 +76,12 @@
     #loading {
         width: 50px;
     }
+
+    #logout {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
 </style>
 
 <body>
@@ -84,6 +90,7 @@
     <div id="auth">
         <div id="register">
             <h2>Register</h2>
+            <input type="text" id="register-nick" placeholder="Nickname">
             <input type="email" id="register-email" placeholder="Email">
             <input type="password" id="register-password" placeholder="Password">
             <button onclick="register()">Register</button>
@@ -103,19 +110,16 @@
     </div>
 
     <div id="game" style="display: none;">
-        <div style="display: flex; width: 95vw; position: relative;">
+        <button id="logout" onclick="logout()">Logout</button>
+        <div style="display: flex; width: 95vw; justify-content: space-between;">
             <p id="userCont">You : <span id="user"></span></p>
-            <p style="position: absolute; right: 0;" id="oppNameCont">Opponent : <span id="oppName"></span></p>
+            <p id="oppNameCont">Opponent : <span id="oppName"></span></p>
         </div>
         <br>
         <p id="valueCont">You are playing as <span id="value"></span></p>
         <br>
         <p id="whosTurn">X's Turn</p>
 
-        <div>
-            <p style="font-size: 1.2rem;" id="enterName">Enter your name : </p>
-            <input type="text" placeholder="Name" id="name" autocomplete="off">
-        </div>
         <button id="find">Search for a player</button>
         <img src="loading.gif" id="loading" alt="">
 
@@ -149,20 +153,16 @@
         let myTurn = false;
 
         document.getElementById("find").addEventListener("click", function () {
-            name = document.getElementById("name").value;
+            name = localStorage.getItem('nickname');
             console.log("Rozpoczynanie wyszukiwania z nazwą: ", name);
 
             document.getElementById("user").innerText = name;
 
-            if (name == null || name == '') {
-                alert("You must enter your name");
-            } else {
-                console.log("Emitowanie żądania wyszukiwania dla: ", name);
-                socket.emit("find", { name: name });
+            console.log("Emitowanie żądania wyszukiwania dla: ", name);
+            socket.emit("find", { name: name });
 
-                document.getElementById("loading").style.display = "block";
-                document.getElementById("find").disabled = true;
-            }
+            document.getElementById("loading").style.display = "block";
+            document.getElementById("find").disabled = true;
         });
 
         socket.on("find", (e) => {
@@ -175,9 +175,7 @@
                 document.getElementById("oppNameCont").style.display = "block";
                 document.getElementById("valueCont").style.display = "block";
                 document.getElementById("loading").style.display = "none";
-                document.getElementById("name").style.display = "none";
                 document.getElementById("find").style.display = "none";
-                document.getElementById("enterName").style.display = "none";
                 document.getElementById("bigCont").style.display = "block";
                 document.getElementById("whosTurn").style.display = "block";
                 document.getElementById("whosTurn").innerText = "X's Turn";
@@ -270,7 +268,7 @@
                     sum % 2 == 0 ? alert("X WON !!") : alert("O WON !!");
 
                     setTimeout(() => {
-                        location.reload();
+                        resetGame();
                     }, 2000);
                 }, 100);
             } else if (sum == 10) {
@@ -280,20 +278,32 @@
                     alert("DRAW!!");
 
                     setTimeout(() => {
-                        location.reload();
+                        resetGame();
                     }, 2000);
                 }, 100);
             }
         }
 
+        function resetGame() {
+            document.getElementById("bigCont").style.display = "none";
+            document.getElementById("whosTurn").style.display = "none";
+            document.getElementById("find").style.display = "block";
+            document.getElementById("find").disabled = false;
+            document.querySelectorAll(".btn").forEach(button => {
+                button.innerText = '';
+                button.removeAttribute('disabled');
+            });
+        }
+
         function register() {
             const email = document.getElementById("register-email").value;
             const password = document.getElementById("register-password").value;
+            const nickname = document.getElementById("register-nick").value;
 
             fetch('http://localhost:3000/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password, nickname })
             }).then(response => response.text())
               .then(data => alert(data))
               .catch(error => console.error('Error:', error));
@@ -323,10 +333,18 @@
             }).then(response => response.json())
               .then(data => {
                 localStorage.setItem('accessToken', data.accessToken);
+                localStorage.setItem('nickname', data.nickname);
                 document.getElementById("auth").style.display = "none";
                 document.getElementById("game").style.display = "block";
               })
               .catch(error => console.error('Error:', error));
+        }
+
+        function logout() {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('nickname');
+            document.getElementById("auth").style.display = "block";
+            document.getElementById("game").style.display = "none";
         }
     </script>
 </body>
