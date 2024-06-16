@@ -1,8 +1,6 @@
 const express = require("express");
-const AWS = require('aws-sdk');
-const AmazonCognitoIdentity = require('amazon-cognito-identity-js');
-const bodyParser = require('body-parser');
 const app = express();
+
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -10,7 +8,6 @@ const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 app.use(cors());
-app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -20,8 +17,8 @@ const io = new Server(server, {
     transports: ['polling', 'websocket']
 });
 
-let arr = [];
-let playingArray = [];
+let waitingPlayers = [];
+let playingGames = [];
 
 app.use(express.static('public'));
 
@@ -31,148 +28,62 @@ io.on("connection", (socket) => {
     socket.on("find", (e) => {
         console.log("Otrzymano żądanie znalezienia gracza: ", e);
         if (e.name != null) {
-            arr.push({ name: e.name, id: socket.id });
-            console.log("Aktualna lista graczy czekających: ", arr);
-            if (arr.length >= 2) {
-                let p1obj = {
-                    p1name: arr[0].name,
-                    p1value: "X",
-                    p1move: "",
-                    p1id: arr[0].id
-                };
-                let p2obj = {
-                    p2name: arr[1].name,
-                    p2value: "O",
-                    p2move: "",
-                    p2id: arr[1].id
-                };
+            waitingPlayers.push({ name: e.name, id: socket.id });
+            console.log("Aktualna lista graczy czekających: ", waitingPlayers);
+            if (waitingPlayers.length >= 2) {
+                let p1 = waitingPlayers.shift();
+                let p2 = waitingPlayers.shift();
 
-                let obj = {
-                    p1: p1obj,
-                    p2: p2obj,
+                let game = {
+                    players: [
+                        { name: p1.name, id: p1.id, symbol: "X", move: "" },
+                        { name: p2.name, id: p2.id, symbol: "O", move: "" }
+                    ],
                     sum: 1
                 };
 
-                playingArray.push(obj);
-                console.log("Utworzono mecz: ", obj);
+                playingGames.push(game);
+                console.log("Utworzono mecz: ", game);
 
-                arr.splice(0, 2); //delete two names
-
-                io.emit("find", { allPlayersArray: playingArray });
-                console.log("Emitowano aktualizację graczy: ", playingArray);
+                io.to(p1.id).emit("gameFound", { opponent: p2.name, symbol: "X" });
+                io.to(p2.id).emit("gameFound", { opponent: p1.name, symbol: "O" });
             }
         }
     });
 
     socket.on("playing", (e) => {
         console.log("Otrzymano ruch od gracza: ", e);
-        let objToChange = playingArray.find(obj => (obj.p1.p1name === e.name) || (obj.p2.p2name === e.name));
+        let game = playingGames.find(g => g.players.some(p => p.name === e.name));
 
-        if (e.value == "X") {
-            objToChange.p1.p1move = e.id;
-        } else if (e.value == "O") {
-            objToChange.p2.p2move = e.id;
+        if (!game) return;
+
+        let player = game.players.find(p => p.name === e.name);
+        let opponent = game.players.find(p => p.name !== e.name);
+
+        if (player.symbol === e.value) {
+            player.move = e.id;
+            game.sum++;
+            let currentPlayerTurn = game.sum % 2 === 0 ? "O" : "X";
+            console.log("Zaktualizowano stan gry: ", game);
+
+            io.to(player.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+            io.to(opponent.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+            console.log("Emitowano ruch do wszystkich graczy.");
         }
-        objToChange.sum++;
-        let currentPlayerTurn = objToChange.sum % 2 === 0 ? "O" : "X";
-        console.log("Zaktualizowano stan gry: ", objToChange);
-
-        io.emit("playing", { allPlayers: playingArray, currentPlayerTurn });
-        console.log("Emitowano ruch do wszystkich graczy.");
     });
 
     socket.on("gameOver", (e) => {
-        playingArray = playingArray.filter(obj => obj.p1.p1name !== e.name && obj.p2.p2name !== e.name);
+        playingGames = playingGames.filter(game => !game.players.some(p => p.name === e.name));
     });
 
     socket.on("disconnect", () => {
         console.log("Użytkownik rozłączony", socket.id);
-        let game = playingArray.find(obj => obj.p1.p1id === socket.id || obj.p2.p2id === socket.id);
+        waitingPlayers = waitingPlayers.filter(p => p.id !== socket.id);
+        let game = playingGames.find(game => game.players.some(p => p.id === socket.id));
         if (game) {
-            playingArray = playingArray.filter(obj => obj.p1.p1id !== socket.id && obj.p2.p2id !== socket.id);
-            io.emit("gameOver", { name: game.p1.p1name });
-        }
-    });
-});
-
-// Auth routes
-app.post('/register', (req, res) => {
-    const { email, password, nickname } = req.body;
-
-    const poolData = {
-        UserPoolId: process.env.COGNITO_USER_POOL_ID,
-        ClientId: process.env.COGNITO_CLIENT_ID
-    };
-    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
-
-    const attributeList = [
-        new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }),
-        new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "preferred_username", Value: nickname })
-    ];
-
-    userPool.signUp(email, password, attributeList, null, (err, result) => {
-        if (err) {
-            res.status(400).send(err.message);
-        } else {
-            res.send('Registration successful! Please check your email for verification code.');
-        }
-    });
-});
-
-app.post('/confirm', (req, res) => {
-    const { email, code } = req.body;
-
-    const poolData = {
-        UserPoolId: process.env.COGNITO_USER_POOL_ID,
-        ClientId: process.env.COGNITO_CLIENT_ID
-    };
-    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
-
-    const userData = {
-        Username: email,
-        Pool: userPool
-    };
-
-    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
-
-    cognitoUser.confirmRegistration(code, true, (err, result) => {
-        if (err) {
-            res.status(400).send(err.message);
-        } else {
-            res.send('Verification successful! You can now log in.');
-        }
-    });
-});
-
-app.post('/login', (req, res) => {
-    const { email, password } = req.body;
-
-    const poolData = {
-        UserPoolId: process.env.COGNITO_USER_POOL_ID,
-        ClientId: process.env.COGNITO_CLIENT_ID
-    };
-    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
-
-    const authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({
-        Username: email,
-        Password: password
-    });
-
-    const userData = {
-        Username: email,
-        Pool: userPool
-    };
-
-    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
-
-    cognitoUser.authenticateUser(authenticationDetails, {
-        onSuccess: (result) => {
-            const accessToken = result.getAccessToken().getJwtToken();
-            const nickname = result.idToken.payload['preferred_username'];
-            res.json({ accessToken, nickname });
-        },
-        onFailure: (err) => {
-            res.status(400).send(err.message);
+            let opponent = game.players.find(p => p.id !== socket.id);
+            io.to(opponent.id).emit("gameOver", { message: "Your opponent has disconnected." });
+            playingGames = playingGames.filter(g => g !== game);
         }
     });
 });
