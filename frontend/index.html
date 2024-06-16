@@ -298,17 +298,15 @@
                 body: JSON.stringify({ email, password })
             }).then(response => response.json())
               .then(data => {
-                localStorage.setItem('accessToken', data.accessToken);
-                document.getElementById("auth").style.display = "none";
-                document.getElementById("game").style.display = "block";
-              })
-              .catch(error => {
-                if (error.message === 'Incorrect Password') {
-                    alert('Incorrect Password');
+                if (data.accessToken) {
+                    localStorage.setItem('accessToken', data.accessToken);
+                    document.getElementById("auth").style.display = "none";
+                    document.getElementById("game").style.display = "block";
                 } else {
-                    console.error('Error:', error);
+                    alert("Login failed, please check your credentials");
                 }
-              });
+              })
+              .catch(error => console.error('Error:', error));
         }
 
         function logout() {
