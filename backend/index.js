@@ -50,14 +50,17 @@ function checkGameOver(players) {
 
     for (let combination of winningCombinations) {
         if (combination.every(btn => moves.X.includes(btn))) {
+            console.log('Game Over: X won');
             return { winner: 'X' };
         }
         if (combination.every(btn => moves.O.includes(btn))) {
+            console.log('Game Over: O won');
             return { winner: 'O' };
         }
     }
 
     if (moves.X.length + moves.O.length === 9) {
+        console.log('Game Over: Draw');
         return { winner: 'Draw' };
     }
 
