@@ -86,7 +86,7 @@ io.on("connection", (socket) => {
 
 // Auth routes
 app.post('/register', (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, nickname } = req.body;
 
     const poolData = {
         UserPoolId: process.env.COGNITO_USER_POOL_ID,
@@ -94,8 +94,10 @@ app.post('/register', (req, res) => {
     };
     const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
 
-    const attributeList = [];
-    attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }));
+    const attributeList = [
+        new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }),
+        new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "preferred_username", Value: nickname })
+    ];
 
     userPool.signUp(email, password, attributeList, null, (err, result) => {
         if (err) {
@@ -155,7 +157,8 @@ app.post('/login', (req, res) => {
     cognitoUser.authenticateUser(authenticationDetails, {
         onSuccess: (result) => {
             const accessToken = result.getAccessToken().getJwtToken();
-            res.json({ accessToken });
+            const nickname = result.idToken.payload['cognito:username'];
+            res.json({ accessToken, nickname });
         },
         onFailure: (err) => {
             res.status(400).send(err.message);
