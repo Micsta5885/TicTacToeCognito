@@ -50,17 +50,14 @@ function checkGameOver(players) {
 
     for (let combination of winningCombinations) {
         if (combination.every(btn => moves.X.includes(btn))) {
-            console.log('Game Over: X won');
             return { winner: 'X' };
         }
         if (combination.every(btn => moves.O.includes(btn))) {
-            console.log('Game Over: O won');
             return { winner: 'O' };
         }
     }
 
     if (moves.X.length + moves.O.length === 9) {
-        console.log('Game Over: Draw');
         return { winner: 'Draw' };
     }
 
@@ -121,6 +118,7 @@ io.on("connection", (socket) => {
             console.log("Emitowano ruch do wszystkich graczy.");
 
             let result = checkGameOver(game.players);
+            console.log("Wynik sprawdzania końca gry:", result);  // Dodanie logów
             if (result) {
                 if (result.winner === 'Draw') {
                     io.to(player.id).emit("gameOver", { message: "Draw!" });
