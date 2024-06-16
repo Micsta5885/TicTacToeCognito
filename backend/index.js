@@ -168,7 +168,7 @@ app.post('/login', (req, res) => {
             res.json({ accessToken, nickname });
         },
         onFailure: (err) => {
-            res.status(400).send(err.message);
+            res.status(400).send('Incorrect Password');
         }
     });
 });
