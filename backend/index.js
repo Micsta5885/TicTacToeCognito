@@ -223,11 +223,7 @@ app.post('/login', (req, res) => {
             res.json({ accessToken });
         },
         onFailure: (err) => {
-            if (err.message === 'Incorrect username or password.') {
-                res.status(400).json({ message: 'Incorrect Password' });
-            } else {
-                res.status(400).send(err.message);
-            }
+            res.status(400).send(err.message);
         }
     });
 });
