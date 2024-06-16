@@ -14,6 +14,8 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
+        height: 100vh;
         color: black; /* Czarny kolor napisów */
         font-family: 'Tilt Warp', cursive;
     }
@@ -46,6 +48,7 @@
         display: grid;
         grid-template-columns: repeat(3, 100px);
         grid-gap: 10px;
+        justify-content: center;
     }
 
     .btn {
@@ -183,7 +186,6 @@
 
             let oppName;
             let value;
-            myTurn = (value === 'X');
 
             const foundObject = allPlayersArray.find(obj => obj.p1.p1name == `${name}` || obj.p2.p2name == `${name}`);
             if (foundObject) {
@@ -287,12 +289,14 @@
         function resetGame() {
             document.getElementById("bigCont").style.display = "none";
             document.getElementById("whosTurn").style.display = "none";
+            document.getElementById("valueCont").style.display = "none";
             document.getElementById("find").style.display = "block";
             document.getElementById("find").disabled = false;
             document.querySelectorAll(".btn").forEach(button => {
                 button.innerText = '';
                 button.removeAttribute('disabled');
             });
+            myTurn = false;
         }
 
         function register() {
