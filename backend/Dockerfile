@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install amazon-cognito-identity-js aws-sdk
+RUN npm install
 
 COPY . .
 
