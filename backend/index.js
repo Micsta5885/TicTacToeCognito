@@ -31,57 +31,71 @@ io.on("connection", (socket) => {
     socket.on("find", (e) => {
         console.log("Otrzymano żądanie znalezienia gracza: ", e);
         if (e.name != null) {
-            arr.push(e.name);
-            console.log("Aktualna lista graczy czekających: ", arr);
+            arr.push({ name: e.name, id: socket.id });
+            console.log("Aktualna lista graczy czekających: ", arr.map(player => player.name));
             if (arr.length >= 2) {
-                let p1obj = {
-                    p1name: arr[0],
-                    p1value: "X",
-                    p1move: ""
-                };
-                let p2obj = {
-                    p2name: arr[1],
-                    p2value: "O",
-                    p2move: ""
-                };
+                let p1 = arr.shift();
+                let p2 = arr.shift();
 
-                let obj = {
-                    p1: p1obj,
-                    p2: p2obj,
+                let game = {
+                    players: [
+                        { name: p1.name, id: p1.id, symbol: "X", move: "" },
+                        { name: p2.name, id: p2.id, symbol: "O", move: "" }
+                    ],
                     sum: 1
                 };
 
-                playingArray.push(obj);
-                console.log("Utworzono mecz: ", obj);
+                playingArray.push(game);
+                console.log("Utworzono mecz: ", game);
 
-                arr.splice(0, 2); //delete two names
-
-                io.emit("find", { allPlayersArray: playingArray });
-                console.log("Emitowano aktualizację graczy: ", playingArray);
+                io.to(p1.id).emit("gameFound", { opponent: p2.name, symbol: "X" });
+                io.to(p2.id).emit("gameFound", { opponent: p1.name, symbol: "O" });
             }
         }
     });
 
     socket.on("playing", (e) => {
         console.log("Otrzymano ruch od gracza: ", e);
-        let objToChange = playingArray.find(obj => (obj.p1.p1name === e.name) || (obj.p2.p2name === e.name));
+        let game = playingArray.find(g => g.players.some(p => p.name === e.name));
 
-        if (e.value == "X") {
-            objToChange.p1.p1move = e.id;
-        } else if (e.value == "O") {
-            objToChange.p2.p2move = e.id;
+        if (!game) return;
+
+        let player = game.players.find(p => p.name === e.name);
+        let opponent = game.players.find(p => p.name !== e.name);
+
+        if (!opponent) {
+            console.error("Opponent not found");
+            return;
         }
-        objToChange.sum++;
-        let currentPlayerTurn = objToChange.sum % 2 === 0 ? "O" : "X";
-        console.log("Zaktualizowano stan gry: ", objToChange);
 
-        io.emit("playing", { allPlayers: playingArray, currentPlayerTurn });
-        console.log("Emitowano ruch do wszystkich graczy.");
+        if (player.symbol === e.value) {
+            player.move = e.id;
+            game.sum++;
+            let currentPlayerTurn = game.sum % 2 === 0 ? "O" : "X";
+            console.log("Zaktualizowano stan gry: ", game);
+
+            io.to(player.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+            io.to(opponent.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+            console.log("Emitowano ruch do wszystkich graczy.");
+        }
     });
 
     socket.on("gameOver", (e) => {
-        playingArray = playingArray.filter(obj => obj.p1.p1name !== e.name)
-    })
+        playingArray = playingArray.filter(game => !game.players.some(p => p.name === e.name));
+    });
+
+    socket.on("disconnect", () => {
+        console.log("Użytkownik rozłączony", socket.id);
+        arr = arr.filter(p => p.id !== socket.id);
+        let game = playingArray.find(game => game.players.some(p => p.id === socket.id));
+        if (game) {
+            let opponent = game.players.find(p => p.id !== socket.id);
+            if (opponent) {
+                io.to(opponent.id).emit("gameOver", { message: "Your opponent has disconnected." });
+            }
+            playingArray = playingArray.filter(g => g !== game);
+        }
+    });
 });
 
 // Auth routes
@@ -158,7 +172,11 @@ app.post('/login', (req, res) => {
             res.json({ accessToken });
         },
         onFailure: (err) => {
-            res.status(400).send(err.message);
+            if (err.message === 'Incorrect username or password.') {
+                res.status(400).json({ message: 'Incorrect Password' });
+            } else {
+                res.status(400).send(err.message);
+            }
         }
     });
 });
