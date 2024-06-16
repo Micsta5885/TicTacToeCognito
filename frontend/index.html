@@ -6,87 +6,88 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <link href="https://fonts.googleapis.com/css2?family=Tilt+Warp&display=swap" rel="stylesheet">
     <title>Tic Tac Toe</title>
+    <style>
+        body {
+            background-color: #d3d3d3; /* Szare tło */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: black; /* Czarny kolor napisów */
+            font-family: 'Tilt Warp', cursive;
+        }
+
+        h1 {
+            margin: 50px 0 20px 0;
+            font-size: 4rem;
+            color: black; /* Czarny kolor napisów */
+        }
+
+        input, button {
+            background-color: transparent;
+            color: black; /* Czarny kolor napisów */
+            border: 1px solid black; /* Czarny kolor obramówek */
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        button {
+            width: 250px; 
+        }
+
+        button:hover {
+            background-color: rgba(0, 0, 0, 0.2); /* Czarny kolor przy najechaniu */
+        }
+
+        #cont {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-gap: 10px;
+            margin: auto;
+        }
+
+        .btn {
+            background-color: #d3d3d3; /* Szare tło */
+            color: black; /* Czarny kolor napisów */
+            font-size: 2rem;
+            width: 100px;
+            height: 100px;
+            border-radius: 10px;
+            border: 2px solid black; /* Czarny kolor obramówek */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn_clicked {
+            color: black; /* Czarny kolor napisów */
+        }
+        .btn:hover {
+            background-color: rgba(0, 0, 0, 0.1); /* Czarny kolor przy najechaniu */
+        }
+
+        p {
+            font-size: 1.2rem;
+            color: black; /* Czarny kolor napisów */
+            text-align: center;
+        }
+
+        #loading {
+            width: 50px;
+        }
+
+        #logout {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        #game {
+            text-align: center;
+        }
+    </style>
 </head>
-
-<style>
-    body {
-        background-color: #d3d3d3; /* Szare tło */
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        color: black; /* Czarny kolor napisów */
-        font-family: 'Tilt Warp', cursive;
-    }
-
-    h1 {
-        margin: 50px 0 20px 0;
-        font-size: 4rem;
-        color: black; /* Czarny kolor napisów */
-    }
-
-    input, button {
-        background-color: transparent;
-        color: black; /* Czarny kolor napisów */
-        border: 1px solid black; /* Czarny kolor obramówek */
-        padding: 10px;
-        margin-bottom: 20px;
-        font-size: 1.2rem;
-        cursor: pointer;
-    }
-
-    button {
-        width: 250px; 
-    }
-
-    button:hover {
-        background-color: rgba(0, 0, 0, 0.2); /* Czarny kolor przy najechaniu */
-    }
-
-    #cont {
-        display: grid;
-        grid-template-columns: repeat(3, 100px);
-        grid-gap: 10px;
-    }
-
-    .btn {
-        background-color: #d3d3d3; /* Szare tło */
-        color: black; /* Czarny kolor napisów */
-        font-size: 2rem;
-        width: 100px;
-        height: 100px;
-        border-radius: 10px;
-        border: 2px solid black; /* Czarny kolor obramówek */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .btn_clicked {
-        color: black; /* Czarny kolor napisów */
-    }
-    .btn:hover {
-        background-color: rgba(0, 0, 0, 0.1); /* Czarny kolor przy najechaniu */
-    }
-
-    p {
-        font-size: 1.2rem;
-        color: black; /* Czarny kolor napisów */
-    }
-
-    #loading {
-        width: 50px;
-    }
-
-    #logout {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-    }
-
-    #game {
-        text-align: center;
-    }
-</style>
 
 <body>
     <h1>Tic Tac Toe</h1>
@@ -263,6 +264,11 @@
             });
         });
 
+        socket.on("gameOver", (e) => {
+            alert(e.message);
+            resetGame();
+        });
+
         function check(name, sum) {
             document.getElementById("btn1").innerText == '' ? b1 = "a" : b1 = document.getElementById("btn1").innerText;
             document.getElementById("btn2").innerText == '' ? b2 = "b" : b2 = document.getElementById("btn2").innerText;
@@ -358,6 +364,7 @@
         }
 
         function logout() {
+            socket.emit("logout", { name: name });
             localStorage.removeItem('accessToken');
             document.getElementById("auth").style.display = "block";
             document.getElementById("game").style.display = "none";
