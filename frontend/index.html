@@ -291,7 +291,10 @@
                 document.getElementById("auth").style.display = "none";
                 document.getElementById("game").style.display = "block";
               })
-              .catch(error => console.error('Error:', error));
+              .catch(error => {
+                console.error('Error:', error);
+                alert('Incorrect Password');
+              });
         }
 
         function logout() {
