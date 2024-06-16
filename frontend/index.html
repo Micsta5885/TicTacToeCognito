@@ -1,306 +1,192 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <link href="https://fonts.googleapis.com/css2?family=Tilt+Warp&display=swap" rel="stylesheet">
-    <title>Tic Tac Toe</title>
-    <style>
-        body {
-            background-color: #d3d3d3; /* Szare tło */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: black; /* Czarny kolor napisów */
-            font-family: 'Tilt Warp', cursive;
-        }
+const express = require("express");
+const AWS = require('aws-sdk');
+const AmazonCognitoIdentity = require('amazon-cognito-identity-js');
+const bodyParser = require('body-parser');
+const app = express();
+const path = require("path");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require('cors');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
-        h1 {
-            margin: 50px 0 20px 0;
-            font-size: 4rem;
-            color: black; /* Czarny kolor napisów */
-        }
+app.use(cors());
+app.use(bodyParser.json());
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    transports: ['polling', 'websocket']
+});
 
-        input, button {
-            background-color: transparent;
-            color: black; /* Czarny kolor napisów */
-            border: 1px solid black; /* Czarny kolor obramówek */
-            padding: 10px;
-            margin-bottom: 20px;
-            font-size: 1.2rem;
-            cursor: pointer;
-        }
+let waitingPlayers = [];
+let playingGames = [];
 
-        button {
-            width: 250px; 
-        }
+app.use(express.static('public'));
 
-        button:hover {
-            background-color: rgba(0, 0, 0, 0.2); /* Czarny kolor przy najechaniu */
-        }
+io.on("connection", (socket) => {
+    console.log("Nowy użytkownik połączony", socket.id);
 
-        #cont {
-            display: grid;
-            grid-template-columns: repeat(3, 100px);
-            grid-gap: 10px;
-        }
+    socket.on("find", (e) => {
+        console.log("Otrzymano żądanie znalezienia gracza: ", e);
+        if (e.name != null) {
+            waitingPlayers.push({ name: e.name, id: socket.id });
+            console.log("Aktualna lista graczy czekających: ", waitingPlayers);
+            if (waitingPlayers.length >= 2) {
+                let p1 = waitingPlayers.shift();
+                let p2 = waitingPlayers.shift();
 
-        .btn {
-            background-color: #d3d3d3; /* Szare tło */
-            color: black; /* Czarny kolor napisów */
-            font-size: 2rem;
-            width: 100px;
-            height: 100px;
-            border-radius: 10px;
-            border: 2px solid black; /* Czarny kolor obramówek */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+                let game = {
+                    players: [
+                        { name: p1.name, id: p1.id, symbol: "X", move: "" },
+                        { name: p2.name, id: p2.id, symbol: "O", move: "" }
+                    ],
+                    sum: 1
+                };
 
-        .btn_clicked {
-            color: black; /* Czarny kolor napisów */
-        }
-        .btn:hover {
-            background-color: rgba(0, 0, 0, 0.1); /* Czarny kolor przy najechaniu */
-        }
+                playingGames.push(game);
+                console.log("Utworzono mecz: ", game);
 
-        p {
-            font-size: 1.2rem;
-            color: black; /* Czarny kolor napisów */
-            text-align: center;
-        }
-
-        #loading {
-            width: 50px;
-        }
-
-        #logout {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-        }
-
-        #game {
-            text-align: center;
-        }
-    </style>
-</head>
-
-<body>
-    <h1>Tic Tac Toe</h1>
-
-    <div id="auth">
-        <div id="register">
-            <h2>Register</h2>
-            <input type="text" id="register-nick" placeholder="Nickname">
-            <input type="email" id="register-email" placeholder="Email">
-            <input type="password" id="register-password" placeholder="Password">
-            <button onclick="register()">Register</button>
-        </div>
-        <div id="confirm">
-            <h2>Confirm</h2>
-            <input type="email" id="confirm-email" placeholder="Email">
-            <input type="text" id="confirm-code" placeholder="Verification Code">
-            <button onclick="confirm()">Confirm</button>
-        </div>
-        <div id="login">
-            <h2>Login</h2>
-            <input type="email" id="login-email" placeholder="Email">
-            <input type="password" id="login-password" placeholder="Password">
-            <button onclick="login()">Login</button>
-        </div>
-    </div>
-
-    <div id="game" style="display: none;">
-        <button id="logout" onclick="logout()">Logout</button>
-        <div style="display: flex; justify-content: space-between; width: 100%;">
-            <p id="userCont">You: <span id="user"></span></p>
-            <p id="oppNameCont">Opponent: <span id="oppName"></span></p>
-        </div>
-        <br>
-        <p id="valueCont">You are playing as <span id="value"></span></p>
-        <br>
-        <p id="whosTurn">X's Turn</p>
-        <br>
-        <button id="find">Search for a player</button>
-        <img src="loading.gif" id="loading" alt="">
-        <br>
-        <div id="bigCont">
-            <div id="cont">
-                <button id="btn1" class="btn"></button>
-                <button id="btn2" class="btn"></button>
-                <button id="btn3" class="btn"></button>
-                <button id="btn4" class="btn"></button>
-                <button id="btn5" class="btn"></button>
-                <button id="btn6" class="btn"></button>
-                <button id="btn7" class="btn"></button>
-                <button id="btn8" class="btn"></button>
-                <button id="btn9" class="btn"></button>
-            </div>
-        </div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        document.getElementById("loading").style.display = "none";
-        document.getElementById("bigCont").style.display = "none";
-        document.getElementById("userCont").style.display = "none";
-        document.getElementById("oppNameCont").style.display = "none";
-        document.getElementById("valueCont").style.display = "none";
-        document.getElementById("whosTurn").style.display = "none";
-
-        const socket = io({ path: '/socket.io' });
-
-        let name;
-        let myTurn = false;
-
-        document.getElementById("find").addEventListener("click", function () {
-            name = localStorage.getItem('nickname');
-            console.log("Rozpoczynanie wyszukiwania z nazwą: ", name);
-
-            document.getElementById("user").innerText = name;
-
-            console.log("Emitowanie żądania wyszukiwania dla: ", name);
-            socket.emit("find", { name: name });
-
-            document.getElementById("loading").style.display = "block";
-            document.getElementById("find").disabled = true;
-        });
-
-        socket.on("gameFound", (e) => {
-            console.log("Otrzymano dane o grze: ", e);
-            document.getElementById("userCont").style.display = "block";
-            document.getElementById("oppNameCont").style.display = "block";
-            document.getElementById("valueCont").style.display = "block";
-            document.getElementById("loading").style.display = "none";
-            document.getElementById("find").style.display = "none";
-            document.getElementById("bigCont").style.display = "block";
-            document.getElementById("whosTurn").style.display = "block";
-            document.getElementById("whosTurn").innerText = "X's Turn";
-
-            document.getElementById("oppName").innerText = e.opponent;
-            document.getElementById("value").innerText = e.symbol;
-            myTurn = e.symbol === 'X';
-        });
-
-        socket.on("playing", (e) => {
-            const player = e.allPlayers.find(p => p.name === name);
-
-            if (e.currentPlayerTurn === "O") {
-                document.getElementById("whosTurn").innerText = "O's Turn";
-            } else {
-                document.getElementById("whosTurn").innerText = "X's Turn";
+                io.to(p1.id).emit("gameFound", { opponent: p2.name, symbol: "X" });
+                io.to(p2.id).emit("gameFound", { opponent: p1.name, symbol: "O" });
             }
-
-            e.allPlayers.forEach(player => {
-                if (player.move) {
-                    document.getElementById(player.move).innerText = player.symbol;
-                    document.getElementById(player.move).disabled = true;
-                    document.getElementById(player.move).style.color = "black"; /* Czarny kolor napisów */
-                }
-            });
-
-            myTurn = e.currentPlayerTurn === document.getElementById("value").innerText;
-
-            document.querySelectorAll(".btn").forEach(button => {
-                if (!myTurn) {
-                    button.setAttribute('disabled', 'true');
-                } else if (!button.innerText) {
-                    button.removeAttribute('disabled');
-                }
-            });
-        });
-
-        document.querySelectorAll(".btn").forEach(e => {
-            e.addEventListener("click", function () {
-                if (!myTurn || this.innerText !== '') {
-                    console.log("Nie twoja tura lub przycisk już użyty");
-                    return;
-                }
-
-                let value = document.getElementById("value").innerText;
-                this.innerText = value;
-                this.classList.add('btn_clicked');
-
-                this.disabled = true;
-
-                socket.emit("playing", { value: value, id: this.id, name: name });
-            });
-        });
-
-        socket.on("gameOver", (e) => {
-            alert(e.message);
-            resetGame();
-        });
-
-        function resetGame() {
-            document.getElementById("bigCont").style.display = "none";
-            document.getElementById("whosTurn").style.display = "none";
-            document.getElementById("find").style.display = "block";
-            document.getElementById("find").disabled = false;
-            document.querySelectorAll(".btn").forEach(button => {
-                button.innerText = '';
-                button.removeAttribute('disabled');
-            });
-            document.getElementById("value").innerText = '';
-            document.getElementById("userCont").style.display = "none";
-            document.getElementById("oppNameCont").style.display = "none";
         }
+    });
 
-        function register() {
-            const email = document.getElementById("register-email").value;
-            const password = document.getElementById("register-password").value;
-            const nickname = document.getElementById("register-nick").value;
+    socket.on("playing", (e) => {
+        console.log("Otrzymano ruch od gracza: ", e);
+        let game = playingGames.find(g => g.players.some(p => p.name === e.name));
 
-            fetch('http://localhost:3000/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, nickname })
-            }).then(response => response.text())
-              .then(data => alert(data))
-              .catch(error => console.error('Error:', error));
+        if (!game) return;
+
+        let player = game.players.find(p => p.name === e.name);
+        let opponent = game.players.find(p => p.name !== e.name);
+
+        if (player.symbol === e.value) {
+            player.move = e.id;
+            game.sum++;
+            let currentPlayerTurn = game.sum % 2 === 0 ? "O" : "X";
+            console.log("Zaktualizowano stan gry: ", game);
+
+            io.to(player.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+            io.to(opponent.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+            console.log("Emitowano ruch do wszystkich graczy.");
         }
+    });
 
-        function confirm() {
-            const email = document.getElementById("confirm-email").value;
-            const code = document.getElementById("confirm-code").value;
+    socket.on("gameOver", (e) => {
+        playingGames = playingGames.filter(game => !game.players.some(p => p.name === e.name));
+    });
 
-            fetch('http://localhost:3000/confirm', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, code })
-            }).then(response => response.text())
-              .then(data => alert(data))
-              .catch(error => console.error('Error:', error));
+    socket.on("disconnect", () => {
+        console.log("Użytkownik rozłączony", socket.id);
+        waitingPlayers = waitingPlayers.filter(p => p.id !== socket.id);
+        let game = playingGames.find(game => game.players.some(p => p.id === socket.id));
+        if (game) {
+            let opponent = game.players.find(p => p.id !== socket.id);
+            io.to(opponent.id).emit("gameOver", { message: "Your opponent has disconnected." });
+            playingGames = playingGames.filter(g => g !== game);
         }
+    });
+});
 
-        function login() {
-            const email = document.getElementById("login-email").value;
-            const password = document.getElementById("login-password").value;
+// Auth routes
+app.post('/register', (req, res) => {
+    const { email, password, nickname } = req.body;
 
-            fetch('http://localhost:3000/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            }).then(response => response.json())
-              .then(data => {
-                localStorage.setItem('accessToken', data.accessToken);
-                localStorage.setItem('nickname', data.nickname);
-                document.getElementById("auth").style.display = "none";
-                document.getElementById("game").style.display = "block";
-              })
-              .catch(error => console.error('Error:', error));
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const attributeList = [
+        new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }),
+        new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "preferred_username", Value: nickname })
+    ];
+
+    userPool.signUp(email, password, attributeList, null, (err, result) => {
+        if (err) {
+            res.status(400).send(err.message);
+        } else {
+            res.send('Registration successful! Please check your email for verification code.');
         }
+    });
+});
 
-        function logout() {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('nickname');
-            document.getElementById("auth").style.display = "block";
-            document.getElementById("game").style.display = "none";
-            resetGame();
+app.post('/confirm', (req, res) => {
+    const { email, code } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const userData = {
+        Username: email,
+        Pool: userPool
+    };
+
+    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+    cognitoUser.confirmRegistration(code, true, (err, result) => {
+        if (err) {
+            res.status(400).send(err.message);
+        } else {
+            res.send('Verification successful! You can now log in.');
         }
-    </script>
-</body>
-</html>
+    });
+});
+
+app.post('/login', (req, res) => {
+    const { email, password } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({
+        Username: email,
+        Password: password
+    });
+
+    const userData = {
+        Username: email,
+        Pool: userPool
+    };
+
+    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+    cognitoUser.authenticateUser(authenticationDetails, {
+        onSuccess: (result) => {
+            const accessToken = result.getAccessToken().getJwtToken();
+            const nickname = result.idToken.payload['preferred_username'];
+            res.json({ accessToken, nickname });
+        },
+        onFailure: (err) => {
+            res.status(400).send(err.message);
+        }
+    });
+});
+
+// Proxy endpoint to frontend server
+app.use('/frontend', createProxyMiddleware({
+    target: 'http://localhost:8080', // zmień na URL twojego serwera frontendowego
+    changeOrigin: true,
+    pathRewrite: {
+        '^/frontend': '/', // może być potrzebne, aby znormalizować ścieżkę
+    },
+}));
+
+app.get("/", (req, res) => {
+    console.log("Ktoś zażądał strony głównej.");
+    res.redirect('/frontend'); // Redirect to frontend server
+});
+
+server.listen(3000, () => {
+    console.log("Serwer uruchomiony na porcie 3000");
+});
