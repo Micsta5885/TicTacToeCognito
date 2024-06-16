@@ -37,6 +37,8 @@ function checkGameOver(players) {
         }
     });
 
+    console.log("Player moves:", moves); 
+
     const winningCombinations = [
         ['btn1', 'btn2', 'btn3'],
         ['btn4', 'btn5', 'btn6'],
@@ -63,6 +65,7 @@ function checkGameOver(players) {
 
     return null;
 }
+
 
 io.on("connection", (socket) => {
     console.log("Nowy użytkownik połączony", socket.id);
@@ -93,44 +96,45 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("playing", (e) => {
-        console.log("Otrzymano ruch od gracza: ", e);
-        let game = playingArray.find(g => g.players.some(p => p.name === e.name));
+   socket.on("playing", (e) => {
+    console.log("Otrzymano ruch od gracza: ", e);
+    let game = playingArray.find(g => g.players.some(p => p.name === e.name));
 
-        if (!game) return;
+    if (!game) return;
 
-        let player = game.players.find(p => p.name === e.name);
-        let opponent = game.players.find(p => p.name !== e.name);
+    let player = game.players.find(p => p.name === e.name);
+    let opponent = game.players.find(p => p.name !== e.name);
 
-        if (!opponent) {
-            console.error("Opponent not found");
-            return;
-        }
+    if (!opponent) {
+        console.error("Opponent not found");
+        return;
+    }
 
-        if (player.symbol === e.value) {
-            player.move = e.id;
-            game.sum++;
-            let currentPlayerTurn = game.sum % 2 === 0 ? "O" : "X";
-            console.log("Zaktualizowano stan gry: ", game);
+    if (player.symbol === e.value) {
+        player.move = e.id;
+        game.sum++;
+        let currentPlayerTurn = game.sum % 2 === 0 ? "O" : "X";
+        console.log("Zaktualizowano stan gry: ", game);
 
-            io.to(player.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
-            io.to(opponent.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
-            console.log("Emitowano ruch do wszystkich graczy.");
+        io.to(player.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+        io.to(opponent.id).emit("playing", { allPlayers: game.players, currentPlayerTurn });
+        console.log("Emitowano ruch do wszystkich graczy.");
 
-            let result = checkGameOver(game.players);
-            console.log("Wynik sprawdzania końca gry:", result);  // Dodanie logów
-            if (result) {
-                if (result.winner === 'Draw') {
-                    io.to(player.id).emit("gameOver", { message: "Draw!" });
-                    io.to(opponent.id).emit("gameOver", { message: "Draw!" });
-                } else {
-                    io.to(player.id).emit("gameOver", { message: `${result.winner} WON !!` });
-                    io.to(opponent.id).emit("gameOver", { message: `${result.winner} WON !!` });
-                }
-                playingArray = playingArray.filter(g => g !== game);
+        let result = checkGameOver(game.players);
+        console.log("Wynik sprawdzania końca gry:", result);  // Dodane logi
+        if (result) {
+            if (result.winner === 'Draw') {
+                io.to(player.id).emit("gameOver", { message: "Draw!" });
+                io.to(opponent.id).emit("gameOver", { message: "Draw!" });
+            } else {
+                io.to(player.id).emit("gameOver", { message: `${result.winner} WON !!` });
+                io.to(opponent.id).emit("gameOver", { message: `${result.winner} WON !!` });
             }
+            playingArray = playingArray.filter(g => g !== game);
         }
-    });
+    }
+});
+
 
     socket.on("gameOver", (e) => {
         playingArray = playingArray.filter(game => !game.players.some(p => p.name === e.name));
