@@ -76,6 +76,16 @@
     #loading {
         width: 50px;
     }
+
+    #logout {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+
+    #game {
+        text-align: center;
+    }
 </style>
 
 <body>
@@ -103,22 +113,23 @@
     </div>
 
     <div id="game" style="display: none;">
-        <div style="display: flex; width: 95vw; position: relative;">
-            <p id="userCont">You : <span id="user"></span></p>
-            <p style="position: absolute; right: 0;" id="oppNameCont">Opponent : <span id="oppName"></span></p>
+        <button id="logout" onclick="logout()">Logout</button>
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+            <p id="userCont">You: <span id="user"></span></p>
+            <p id="oppNameCont">Opponent: <span id="oppName"></span></p>
         </div>
         <br>
         <p id="valueCont">You are playing as <span id="value"></span></p>
         <br>
         <p id="whosTurn">X's Turn</p>
-
+        <br>
         <div>
-            <p style="font-size: 1.2rem;" id="enterName">Enter your name : </p>
+            <p style="font-size: 1.2rem;" id="enterName">Enter your name: </p>
             <input type="text" placeholder="Name" id="name" autocomplete="off">
         </div>
         <button id="find">Search for a player</button>
         <img src="loading.gif" id="loading" alt="">
-
+        <br>
         <div id="bigCont">
             <div id="cont">
                 <button id="btn1" class="btn"></button>
@@ -246,7 +257,7 @@
             document.querySelectorAll(".btn").forEach(button => {
                 if (!myTurn) {
                     button.setAttribute('disabled', 'true');
-                } else {
+                } else if (!button.innerText) {
                     button.removeAttribute('disabled');
                 }
             });
@@ -270,7 +281,7 @@
                     sum % 2 == 0 ? alert("X WON !!") : alert("O WON !!");
 
                     setTimeout(() => {
-                        location.reload();
+                        resetGame();
                     }, 2000);
                 }, 100);
             } else if (sum == 10) {
@@ -280,10 +291,27 @@
                     alert("DRAW!!");
 
                     setTimeout(() => {
-                        location.reload();
+                        resetGame();
                     }, 2000);
                 }, 100);
             }
+        }
+
+        function resetGame() {
+            document.getElementById("bigCont").style.display = "none";
+            document.getElementById("whosTurn").style.display = "none";
+            document.getElementById("find").style.display = "block";
+            document.getElementById("find").disabled = false;
+            document.querySelectorAll(".btn").forEach(button => {
+                button.innerText = '';
+                button.removeAttribute('disabled');
+            });
+            document.getElementById("value").innerText = '';
+            document.getElementById("userCont").style.display = "none";
+            document.getElementById("oppNameCont").style.display = "none";
+            document.getElementById("name").style.display = "block";
+            document.getElementById("enterName").style.display = "block";
+            document.getElementById("find").style.display = "block";
         }
 
         function register() {
@@ -327,6 +355,13 @@
                 document.getElementById("game").style.display = "block";
               })
               .catch(error => console.error('Error:', error));
+        }
+
+        function logout() {
+            localStorage.removeItem('accessToken');
+            document.getElementById("auth").style.display = "block";
+            document.getElementById("game").style.display = "none";
+            resetGame();
         }
     </script>
 </body>
