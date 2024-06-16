@@ -1,6 +1,8 @@
 const express = require("express");
+const AWS = require('aws-sdk');
+const AmazonCognitoIdentity = require('amazon-cognito-identity-js');
+const bodyParser = require('body-parser');
 const app = express();
-
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -8,6 +10,7 @@ const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 app.use(cors());
+app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -84,6 +87,88 @@ io.on("connection", (socket) => {
             let opponent = game.players.find(p => p.id !== socket.id);
             io.to(opponent.id).emit("gameOver", { message: "Your opponent has disconnected." });
             playingGames = playingGames.filter(g => g !== game);
+        }
+    });
+});
+
+// Auth routes
+app.post('/register', (req, res) => {
+    const { email, password, nickname } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const attributeList = [
+        new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }),
+        new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "preferred_username", Value: nickname })
+    ];
+
+    userPool.signUp(email, password, attributeList, null, (err, result) => {
+        if (err) {
+            res.status(400).send(err.message);
+        } else {
+            res.send('Registration successful! Please check your email for verification code.');
+        }
+    });
+});
+
+app.post('/confirm', (req, res) => {
+    const { email, code } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const userData = {
+        Username: email,
+        Pool: userPool
+    };
+
+    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+    cognitoUser.confirmRegistration(code, true, (err, result) => {
+        if (err) {
+            res.status(400).send(err.message);
+        } else {
+            res.send('Verification successful! You can now log in.');
+        }
+    });
+});
+
+app.post('/login', (req, res) => {
+    const { email, password } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({
+        Username: email,
+        Password: password
+    });
+
+    const userData = {
+        Username: email,
+        Pool: userPool
+    };
+
+    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+    cognitoUser.authenticateUser(authenticationDetails, {
+        onSuccess: (result) => {
+            const accessToken = result.getAccessToken().getJwtToken();
+            const nickname = result.idToken.payload['preferred_username'];
+            res.json({ accessToken, nickname });
+        },
+        onFailure: (err) => {
+            res.status(400).send(err.message);
         }
     });
 });
