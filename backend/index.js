@@ -54,7 +54,7 @@ io.on("connection", (socket) => {
                 playingArray.push(obj);
                 console.log("Utworzono mecz: ", obj);
 
-                arr.splice(0, 2); //delete two names
+                arr.splice(0, 2); // Usuń dwie nazwy
 
                 io.emit("find", { allPlayersArray: playingArray });
                 console.log("Emitowano aktualizację graczy: ", playingArray);
@@ -80,8 +80,8 @@ io.on("connection", (socket) => {
     });
 
     socket.on("gameOver", (e) => {
-        playingArray = playingArray.filter(obj => obj.p1.p1name !== e.name)
-    })
+        playingArray = playingArray.filter(obj => obj.p1.p1name !== e.name && obj.p2.p2name !== e.name);
+    });
 });
 
 // Auth routes
@@ -157,7 +157,7 @@ app.post('/login', (req, res) => {
     cognitoUser.authenticateUser(authenticationDetails, {
         onSuccess: (result) => {
             const accessToken = result.getAccessToken().getJwtToken();
-            const nickname = result.idToken.payload['cognito:username'];
+            const nickname = result.idToken.payload['preferred_username'];
             res.json({ accessToken, nickname });
         },
         onFailure: (err) => {
@@ -177,7 +177,7 @@ app.use('/frontend', createProxyMiddleware({
 
 app.get("/", (req, res) => {
     console.log("Ktoś zażądał strony głównej.");
-    res.redirect('/frontend'); // Redirect to frontend server
+    res.redirect('/frontend'); // Przekierowanie do serwera frontendowego
 });
 
 server.listen(3000, () => {
