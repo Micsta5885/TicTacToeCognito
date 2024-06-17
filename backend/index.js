@@ -54,7 +54,7 @@ io.on("connection", (socket) => {
                 playingArray.push(obj);
                 console.log("Utworzono mecz: ", obj);
 
-                arr.splice(0, 2); //delete two names
+                arr.splice(0, 2); // Usuń dwa imiona
 
                 io.emit("find", { allPlayersArray: playingArray });
                 console.log("Emitowano aktualizację graczy: ", playingArray);
@@ -175,7 +175,10 @@ app.post('/login', (req, res) => {
     cognitoUser.authenticateUser(authenticationDetails, {
         onSuccess: (result) => {
             const accessToken = result.getAccessToken().getJwtToken();
-            res.json({ accessToken });
+            const refreshToken = result.getRefreshToken().getToken();
+            const expiresIn = result.getAccessToken().getExpiration() - Math.floor(Date.now() / 1000);
+
+            res.json({ accessToken, refreshToken, expiresIn });
         },
         onFailure: (err) => {
             res.status(400).send(err.message);
@@ -183,18 +186,48 @@ app.post('/login', (req, res) => {
     });
 });
 
-// Proxy endpoint to frontend server
+app.post('/refresh-token', (req, res) => {
+    const { refreshToken } = req.body;
+
+    const poolData = {
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        ClientId: process.env.COGNITO_CLIENT_ID
+    };
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const refreshTokenInstance = new AmazonCognitoIdentity.CognitoRefreshToken({ RefreshToken: refreshToken });
+
+    const userData = {
+        Username: '', 
+        Pool: userPool
+    };
+
+    const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+    cognitoUser.refreshSession(refreshTokenInstance, (err, session) => {
+        if (err) {
+            res.status(400).send(err.message);
+        } else {
+            const accessToken = session.getAccessToken().getJwtToken();
+            const expiresIn = session.getAccessToken().getExpiration() - Math.floor(Date.now() / 1000);
+
+            res.json({ accessToken, expiresIn });
+        }
+    });
+});
+
+
 app.use('/frontend', createProxyMiddleware({
-    target: 'http://localhost:8080', // zmień na URL twojego serwera frontendowego
+    target: 'http://localhost:8080', 
     changeOrigin: true,
     pathRewrite: {
-        '^/frontend': '/', // może być potrzebne, aby znormalizować ścieżkę
+        '^/frontend': '/', 
     },
 }));
 
 app.get("/", (req, res) => {
     console.log("Ktoś zażądał strony głównej.");
-    res.redirect('/frontend'); // Redirect to frontend server
+    res.redirect('/frontend'); 
 });
 
 server.listen(3000, () => {
